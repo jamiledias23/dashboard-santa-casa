@@ -2,8 +2,9 @@
 """
 ================================================================================
  MATRIZ ÁREA x FUNÇÃO — SANTA CASA DE PORTO ALEGRE (VISUALIZAÇÃO EM BOLHAS)
- Cruzamento de 38 Funções (organizadas em 6 Pilares de Sinergia) x
- 22 Gerências/Áreas corporativas, com foco em sobreposições/conflitos.
+ Cruzamento de 37 Funções (organizadas em 6 Pilares de Sinergia) x
+ 22 Gerências/Áreas corporativas, com foco em pontos de atenção observados
+ no Levantamento de Áreas (227 formulários respondidos).
 ================================================================================
 
 Como rodar:
@@ -19,11 +20,15 @@ Como rodar:
 
 Observação sobre os dados:
 ---------------------------
-As relações Função x Gerência (bloco `carregar_relacoes`) estão mockadas
-para fins de demonstração, incluindo o texto de "ponto de atenção /
-sobreposição" de cada cruzamento. Em produção, este bloco deve ser
-substituído por uma consulta à base real, mantendo o mesmo formato de
-saída: uma lista de tuplas (Função, Gerência, Papel, Ponto de Atenção).
+As relações Função x Gerência (bloco `carregar_relacoes`) foram construídas
+a partir de uma releitura cuidadosa das respostas do Levantamento de Áreas
+2026 (227 formulários) e dos organogramas oficiais vigentes, priorizando o
+que está de fato descrito nos cargos e relatado nas entrevistas — e não uma
+atribuição teórica. Os textos de "Ponto de Atenção" são redigidos de forma
+neutra e propositiva, sem citar pessoas e sem tom de julgamento. Em
+produção, este bloco deve ser substituído/validado por uma consulta à base
+oficial consolidada, mantendo o mesmo formato de saída: uma lista de tuplas
+(Função, Gerência, Papel, Ponto de Atenção).
 ================================================================================
 """
 
@@ -44,17 +49,15 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# Número de formulários que alimentaram o Levantamento de Áreas 2026 —
+# informação fixa, exibida no painel de estatísticas independentemente
+# dos filtros aplicados pelo usuário.
+TOTAL_FORMULARIOS_RESPONDIDOS = 227
+
 # Paleta de cores por papel de responsabilidade dentro da matriz.
 CORES_PAPEL = {
-    "R": {"rotulo": "Responsável (dona da entrega)", "cor": "#2563EB", "tamanho": 32},
-    "A": {"rotulo": "Apoio / Interface",              "cor": "#F59E0B", "tamanho": 20},
-}
-
-# Paleta de cores por Macroprocesso (usada apenas no selo/legenda de cada aba).
-CORES_MACRO = {
-    "Finalístico": {"bg": "#E7F8EE", "text": "#15803D"},
-    "Meio":        {"bg": "#EAF2FE", "text": "#1D4ED8"},
-    "Apoio":       {"bg": "#F1F2F4", "text": "#334155"},
+    "R": {"rotulo": "Responsável (dona da entrega)", "cor": "#2563EB", "tamanho": 24},
+    "A": {"rotulo": "Apoio / Interface",              "cor": "#F59E0B", "tamanho": 15},
 }
 
 CUSTOM_CSS = """
@@ -80,7 +83,7 @@ CUSTOM_CSS = """
         padding: 0.9rem 1.1rem;
         box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05);
     }
-    .stat-value { font-size: 1.55rem; font-weight: 800; color: #0F2A4A; line-height: 1.1; }
+    .stat-value { font-size: 1.5rem; font-weight: 800; color: #0F2A4A; line-height: 1.1; }
     .stat-label { font-size: 0.76rem; color: #64748B; font-weight: 600; text-transform: uppercase; }
 
     .legenda-card {
@@ -95,104 +98,79 @@ CUSTOM_CSS = """
         display: inline-flex; align-items: center; gap: 0.4rem;
         margin-right: 1.4rem; margin-bottom: 0.3rem; font-size: 0.84rem; color: #1E293B;
     }
-    .legenda-bolha {
-        display: inline-block; width: 13px; height: 13px; border-radius: 50%;
-    }
-    .legenda-pill {
-        display: inline-block; padding: 0.12rem 0.55rem; border-radius: 999px;
-        font-weight: 700; font-size: 0.76rem;
-    }
-    .selo-macro {
-        display: inline-block; padding: 0.15rem 0.65rem; border-radius: 999px;
-        font-weight: 700; font-size: 0.78rem; margin-left: 0.4rem;
-    }
+    .legenda-bolha { display: inline-block; width: 13px; height: 13px; border-radius: 50%; }
+
+    .pilar-caption { color: #64748B; font-size: 0.85rem; margin-bottom: 0.4rem; }
 </style>
 """
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
 
 # ==============================================================================
-# 2. CAMADA DE DADOS (MOCK)
+# 2. CAMADA DE DADOS
 # ==============================================================================
 
 def carregar_estrutura() -> dict:
-    """Estrutura dos 6 Pilares de Sinergia. Os nomes das Funções já seguem o
-    padrão de verbo de ação solicitado ("Gerenciar ...")."""
+    """Estrutura dos 6 Pilares de Sinergia (37 Funções no total). As Funções
+    'Gerenciar Pessoal' e 'Gerenciar Administração de Pessoal' foram
+    consolidadas em uma única Função, já que o Levantamento de Áreas mostrou
+    que essa atividade é reportada de forma semelhante por diversas
+    gerências, e não apenas pela área de Gestão de Pessoas."""
     return {
-        "1️⃣ Operações Assistenciais": {
-            "macroprocesso": "Finalístico",
-            "funcoes": [
-                "Gerenciar Pronto Socorro",
-                "Gerenciar Unidade de Internação",
-                "Gerenciar Serviços Ambulatoriais",
-                "Gerenciar Procedimentos Cirúrgicos",
-                "Gerenciar Medicina Diagnóstica",
-            ],
-        },
-        "2️⃣ Gestão de Fluxo e Apoio Clínico": {
-            "macroprocesso": "Meio",
-            "funcoes": [
-                "Gerenciar Leitos e NIR",
-                "Gerenciar Atendimento ao Paciente",
-                "Gerenciar Farmácia",
-                "Gerenciar Logística de Medicamentos",
-                "Gerenciar Nutrição Clínica",
-                "Gerenciar Documentação Assistencial",
-                "Gerenciar Epidemiologia e Infecção Hospitalar",
-            ],
-        },
-        "3️⃣ Hotelaria, Logística e Infraestrutura": {
-            "macroprocesso": "Meio",
-            "funcoes": [
-                "Gerenciar Higienização",
-                "Gerenciar Rouparia",
-                "Gerenciar Esterilização",
-                "Gerenciar Manutenção Predial",
-                "Gerenciar Engenharia Clínica",
-                "Gerenciar Obras",
-                "Gerenciar Segurança",
-                "Gerenciar Suprimentos",
-            ],
-        },
-        "4️⃣ Mercado e Ciclo de Receita": {
-            "macroprocesso": "Apoio",
-            "funcoes": [
-                "Gerenciar Comercial",
-                "Gerenciar Produto",
-                "Gerenciar Faturamento",
-                "Gerenciar Finanças e Controladoria",
-                "Gerenciar Marketing",
-                "Gerenciar Filantropia",
-                "Gerenciar Inovação e Planejamento",
-            ],
-        },
-        "5️⃣ Capital Humano e Governança Clínica": {
-            "macroprocesso": "Apoio",
-            "funcoes": [
-                "Gerenciar Pessoal",
-                "Gerenciar Administração de Pessoal",
-                "Gerenciar SESMT",
-                "Gerenciar Relacionamento Médico",
-                "Gerenciar Práticas Médicas",
-                "Gerenciar Resultados e Práticas Assistenciais",
-            ],
-        },
-        "6️⃣ Governança Corporativa e Suporte": {
-            "macroprocesso": "Apoio",
-            "funcoes": [
-                "Gerenciar Governança Corporativa",
-                "Gerenciar Jurídico",
-                "Gerenciar Qualidade",
-                "Gerenciar TI",
-                "Gerenciar Ensino e Pesquisa",
-            ],
-        },
+        "1️⃣ Operações Assistenciais": [
+            "Gerenciar Pronto Socorro",
+            "Gerenciar Unidade de Internação",
+            "Gerenciar Serviços Ambulatoriais",
+            "Gerenciar Procedimentos Cirúrgicos",
+            "Gerenciar Medicina Diagnóstica",
+        ],
+        "2️⃣ Gestão de Fluxo e Apoio Clínico": [
+            "Gerenciar Leitos e NIR",
+            "Gerenciar Atendimento ao Paciente",
+            "Gerenciar Farmácia",
+            "Gerenciar Logística de Medicamentos",
+            "Gerenciar Nutrição Clínica",
+            "Gerenciar Documentação Assistencial",
+            "Gerenciar Epidemiologia e Infecção Hospitalar",
+        ],
+        "3️⃣ Hotelaria, Logística e Infraestrutura": [
+            "Gerenciar Higienização",
+            "Gerenciar Rouparia",
+            "Gerenciar Esterilização",
+            "Gerenciar Manutenção Predial",
+            "Gerenciar Engenharia Clínica",
+            "Gerenciar Obras",
+            "Gerenciar Segurança",
+            "Gerenciar Suprimentos",
+        ],
+        "4️⃣ Mercado e Ciclo de Receita": [
+            "Gerenciar Comercial",
+            "Gerenciar Produto",
+            "Gerenciar Faturamento",
+            "Gerenciar Finanças e Controladoria",
+            "Gerenciar Marketing",
+            "Gerenciar Filantropia",
+            "Gerenciar Inovação e Planejamento",
+        ],
+        "5️⃣ Capital Humano e Governança Clínica": [
+            "Gerenciar Administração de Pessoal",
+            "Gerenciar SESMT",
+            "Gerenciar Relacionamento Médico",
+            "Gerenciar Práticas Médicas",
+            "Gerenciar Resultados e Práticas Assistenciais",
+        ],
+        "6️⃣ Governança Corporativa e Suporte": [
+            "Gerenciar Governança Corporativa",
+            "Gerenciar Jurídico",
+            "Gerenciar Qualidade",
+            "Gerenciar TI",
+            "Gerenciar Ensino e Pesquisa",
+        ],
     }
 
 
 def carregar_gerencias() -> list[str]:
-    """Lista oficial das 22 Gerências/Áreas existentes hoje na instituição
-    (nome completo — usado em filtros, hover e exportação)."""
+    """Lista oficial das 22 Gerências/Áreas existentes hoje na instituição."""
     return [
         "Gerente Corporativo Relacionamento com corpo clinico e clientes",
         "Gerente Ensino e Pesquisa",
@@ -221,8 +199,7 @@ def carregar_gerencias() -> list[str]:
 
 def carregar_abreviacoes() -> dict:
     """Rótulos curtos (com quebra de linha via <br>) usados no eixo X do
-    gráfico, para reduzir a necessidade de rolagem horizontal. O nome
-    completo continua disponível no hover."""
+    gráfico, para reduzir a necessidade de rolagem horizontal."""
     return {
         "Gerente Corporativo Relacionamento com corpo clinico e clientes": "Rel. Corpo<br>Clínico/Clientes",
         "Gerente Ensino e Pesquisa": "Ensino e<br>Pesquisa",
@@ -250,234 +227,246 @@ def carregar_abreviacoes() -> dict:
 
 
 def carregar_relacoes() -> list[tuple[str, str, str, str]]:
-    """Relações Função x Gerência mockadas:
-    (Função, Gerência, Papel, Ponto de Atenção / Sobreposição).
-    Papel: "R" = Responsável (dona da entrega) | "A" = Apoio / Interface.
-    O 4º campo é o texto exibido no hover do gráfico de bolhas."""
+    """Relações Função x Gerência: (Função, Gerência, Papel, Ponto de Atenção).
+    Papel: "R" = Responsável (dona da entrega, conforme descrição de cargo) |
+    "A" = Apoio / Interface. Os textos de Ponto de Atenção resgatam
+    observações relatadas no Levantamento de Áreas, redigidas de forma
+    neutra, sem citar pessoas."""
     return [
         # ---- 1. Operações Assistenciais -----------------------------------
         ("Gerenciar Pronto Socorro", "Gerente Hospitalar", "R",
-         "Unidade sob responsabilidade direta da liderança hospitalar local; falta padronização de modelo entre as diferentes unidades do complexo."),
+         "A descrição de cargo atribui à gerência hospitalar a responsabilidade pelo desempenho assistencial, administrativo e financeiro da unidade. Na prática, a operação cotidiana do Pronto Socorro é conduzida por coordenações e supervisões de segmento, que reportam apenas indiretamente a essa gerência."),
         ("Gerenciar Pronto Socorro", "Gerente Corporativo Operações", "A",
-         "Fluxo de regulação/triagem de urgência ainda concorre com a governança de leitos por especialidade, gerando atrasos de encaminhamento."),
+         "A integração entre o fluxo de urgência e a governança de leitos por especialidade ainda depende de alinhamento manual entre as áreas."),
         ("Gerenciar Pronto Socorro", "Gerente Médico", "A",
-         "Protocolos clínicos de urgência dependem de alinhamento entre múltiplos diretores/coordenadores médicos, sem um único ponto de decisão."),
+         "Protocolos clínicos de urgência envolvem múltiplos diretores e coordenadores médicos por especialidade, sem um ponto único de consolidação das decisões."),
         ("Gerenciar Pronto Socorro", "Gerente Segurança Assistencial", "A",
-         "Indicadores de segurança na porta de entrada são monitorados, mas a ação corretiva depende da adesão local, sem alçada formal de cobrança."),
+         "O acompanhamento de indicadores de segurança na porta de entrada é centralizado, mas a implementação das ações corretivas depende da adesão de cada unidade local."),
 
         ("Gerenciar Unidade de Internação", "Gerente Hospitalar", "R",
-         "Gestão operacional do dia a dia é local; padronização de indicadores entre hospitais ainda é heterogênea."),
+         "Assim como no Pronto Socorro, a responsabilidade formal pelo resultado da internação é da gerência hospitalar, enquanto a gestão assistencial cotidiana é conduzida por coordenações que respondem também à Enfermagem Corporativa."),
         ("Gerenciar Unidade de Internação", "Gerente Corporativo Enfermagem", "A",
-         "Supervisores de enfermagem seguem absorvendo tarefas administrativas de RH (escala, ponto, desligamento) que deveriam ficar fora da unidade assistencial."),
+         "Lideranças de enfermagem da unidade relataram absorver tarefas de escala, ponto e desligamento que poderiam contar com mais apoio direto da área de Gestão de Pessoas."),
         ("Gerenciar Unidade de Internação", "Gerente Corporativo Operações", "A",
-         "Integração com a Gestão de Leitos/NIR é parcial, pois leitos de especialidade mantêm governança própria."),
+         "A integração com a governança de leitos corporativa ainda é parcial, já que parte dos leitos de especialidade é gerida separadamente."),
 
         ("Gerenciar Serviços Ambulatoriais", "Gerente Hospitalar", "R",
-         "Agenda e capacidade ambulatorial variam de hospital para hospital, sem um padrão único de gestão de fila."),
+         "A gestão da agenda e da capacidade ambulatorial ocorre de forma própria em cada unidade hospitalar, sem um padrão único de referência entre elas."),
         ("Gerenciar Serviços Ambulatoriais", "Gerente Corporativo Relacionamento com corpo clinico e clientes", "A",
-         "Experiência do paciente ambulatorial depende de coordenação com múltiplas áreas de agendamento/autorização, ainda fragmentadas."),
+         "A experiência do paciente ambulatorial passa por múltiplas frentes de agendamento e autorização, que podem se beneficiar de maior integração entre si."),
         ("Gerenciar Serviços Ambulatoriais", "Gerente Corporativo Operações", "A",
-         "Uso da capacidade instalada (salas/consultórios) não é monitorado de forma centralizada entre unidades."),
+         "O uso da capacidade instalada (salas e consultórios) não é acompanhado de forma centralizada entre as unidades."),
 
         ("Gerenciar Procedimentos Cirúrgicos", "Gerente Hospitalar", "R",
-         "Mapa cirúrgico e produtividade de salas são geridos localmente, com pouca comparabilidade entre hospitais."),
+         "A produtividade das salas cirúrgicas é acompanhada localmente. As cinco gerências hospitalares atuam hoje com estruturas distintas entre si para o mesmo cargo, o que pode dificultar a comparação entre unidades."),
         ("Gerenciar Procedimentos Cirúrgicos", "Gerente Médico", "A",
-         "Autonomia de diretores/coordenadores médicos especialistas dificulta padronização de protocolos cirúrgicos entre especialidades."),
+         "A autonomia de diretores e coordenadores médicos por especialidade dificulta a padronização de protocolos cirúrgicos entre unidades."),
         ("Gerenciar Procedimentos Cirúrgicos", "Gerente Corporativo Operações", "A",
-         "Central de agendamento/autorização cirúrgica é sobrecarregada e compartilhada entre múltiplos blocos, sem dimensionamento por hospital."),
+         "A central de agendamento e autorização cirúrgica atende simultaneamente a múltiplos blocos, o que pode limitar a capacidade de resposta em momentos de pico."),
         ("Gerenciar Procedimentos Cirúrgicos", "Gerente de Suprimentos", "A",
-         "Disponibilidade de OPME e materiais de alto custo depende de cotação/autorização prévia — fonte recorrente de atraso no início das cirurgias."),
+         "A disponibilidade de OPME e materiais de alto custo depende de cotação prévia — processo apontado como fonte recorrente de atraso no início de cirurgias."),
 
         ("Gerenciar Medicina Diagnóstica", "Gerente Hospitalar", "R",
-         "Resultado financeiro do CDI é acompanhado localmente, sem benchmarking sistemático entre unidades."),
+         "O resultado financeiro do CDI é acompanhado localmente, sem um benchmarking sistemático entre as unidades."),
         ("Gerenciar Medicina Diagnóstica", "Gerente Médico", "A",
-         "Supervisão técnica de exames de imagem existe só em parte dos serviços (falta padronizar hemodinâmica, radioterapia e medicina nuclear)."),
+         "A supervisão técnica de exames de imagem existe apenas em parte dos serviços, faltando padronização em áreas como hemodinâmica, radioterapia e medicina nuclear."),
         ("Gerenciar Medicina Diagnóstica", "Gerente Tecnologia e Inovação", "A",
-         "Integração de equipamentos de imagem digital (PACS) com sistemas corporativos ainda depende de definição clara entre TI e Engenharia Clínica."),
+         "A integração de equipamentos de imagem digital com os sistemas corporativos ainda depende de uma definição mais clara de fronteira entre TI e Engenharia Clínica."),
 
         # ---- 2. Gestão de Fluxo e Apoio Clínico ----------------------------
         ("Gerenciar Leitos e NIR", "Gerente Corporativo Operações", "R",
-         "Leitos de especialidades (cardiologia, pediatria, obstetrícia, TMO) mantêm governança própria fora do NIR, fragmentando a gestão única da capacidade."),
+         "Leitos de especialidades como cardiologia, pediatria, obstetrícia e transplante de medula óssea mantêm gestão própria fora do NIR, o que fragmenta a governança única da capacidade hospitalar."),
         ("Gerenciar Leitos e NIR", "Gerente Hospitalar", "A",
-         "Giro de leitos local depende de integração em tempo real com o NIR corporativo, hoje parcial."),
+         "O giro de leitos de cada unidade depende de integração em tempo real com o NIR corporativo, hoje parcial."),
         ("Gerenciar Leitos e NIR", "Gerente Médico", "A",
-         "Falta um fluxo formal de escalonamento quando o NIR e a equipe médica discordam sobre prioridade de alta/transferência."),
+         "Quando o NIR e a equipe médica têm visões diferentes sobre a prioridade de uma alta ou transferência, ainda não há um fluxo formal de escalonamento."),
 
         ("Gerenciar Atendimento ao Paciente", "Gerente Corporativo Relacionamento com corpo clinico e clientes", "R",
-         "Jornada do paciente passa por múltiplos pontos de contato (recepção, agendamento, autorizações) sem visão única de dono do processo."),
+         "A jornada do paciente passa por múltiplos pontos de contato (recepção, agendamento, autorizações), o que reforça a importância de uma visão única de dono do processo."),
         ("Gerenciar Atendimento ao Paciente", "Gerente Hospitalar", "A",
-         "Equipes de recepção/atendimento local nem sempre seguem o mesmo padrão definido corporativamente."),
+         "As equipes de recepção de cada unidade nem sempre seguem exatamente o mesmo padrão definido corporativamente."),
 
         ("Gerenciar Farmácia", "Gerente de Suprimentos", "R",
-         "Farmácias de bloco cirúrgico funcionam apenas como 'passagem' de estoque, gerando retrabalho de reposição."),
+         "A farmácia está estruturada hoje sob a lógica de suprimentos e logística, ligada à Direção Administrativa. Como parte da prática farmacêutica tem natureza clínica e de segurança do paciente, pode valer a pena avaliar se a governança técnica desse tema não teria maior aderência junto à Direção Técnica."),
         ("Gerenciar Farmácia", "Gerente Segurança Assistencial", "A",
-         "Stewardship de antimicrobianos e segurança medicamentosa exigem alinhamento constante, com sobreposição em auditoria de uso."),
+         "Temas como uso racional de antimicrobianos e segurança medicamentosa são acompanhados em conjunto, e podem se beneficiar de um fluxo de auditoria mais integrado entre as duas áreas."),
         ("Gerenciar Farmácia", "Gerente Hospitalar", "A",
-         "Falta de padronização entre farmácias locais gera diferença de nível de serviço entre hospitais."),
+         "O nível de padronização entre as farmácias de cada unidade hospitalar ainda varia."),
 
         ("Gerenciar Logística de Medicamentos", "Gerente de Suprimentos", "R",
-         "Falhas recorrentes de rota entre CAF e unidades obrigam equipes assistenciais a buscar material no almoxarifado."),
+         "Falhas de rota entre o CAF e as unidades foram relatadas como causa de deslocamentos extras das equipes assistenciais até o almoxarifado."),
         ("Gerenciar Logística de Medicamentos", "Gerente Corporativo Operações", "A",
-         "Dimensionamento da logística interna (rotas/horários) não é revisado com a mesma frequência da demanda assistencial."),
+         "O dimensionamento das rotas de entrega interna pode não acompanhar, na mesma velocidade, as variações da demanda assistencial."),
 
-        ("Gerenciar Nutrição Clínica", "Gerente Corporativo Operações", "R",
-         "Nutrição assistencial ainda acumula tarefas operacionais de estoque/dispensação que poderiam ser da farmácia ou logística."),
+        ("Gerenciar Nutrição Clínica", "Gerente Corporativo Enfermagem", "R",
+         "A nutrição assistencial relatou absorver tarefas operacionais de estoque e dispensação de produtos que poderiam ficar mais concentradas em Suprimentos/Farmácia."),
         ("Gerenciar Nutrição Clínica", "Gerente Hospitalar", "A",
-         "Padrão de dietas e cardápios varia entre unidades sem um único guia corporativo."),
+         "O padrão de dietas e cardápios ainda varia entre as unidades hospitalares."),
 
         ("Gerenciar Documentação Assistencial", "Gerente de Qualidade", "R",
-         "Qualidade acaba assumindo registros operacionais que deveriam ser preenchidos pelas próprias áreas gestoras (corresponsabilidade em construção)."),
+         "A área de Qualidade relatou assumir, em parte, registros operacionais que poderiam ser preenchidos diretamente pelas áreas gestoras responsáveis — uma corresponsabilidade ainda em construção."),
         ("Gerenciar Documentação Assistencial", "Gerente Corporativo Enfermagem", "A",
-         "Prontuário e registros de enfermagem demandam auditoria constante para garantir completude, consumindo tempo assistencial."),
+         "A auditoria de completude do prontuário e dos registros de enfermagem consome tempo da liderança assistencial."),
         ("Gerenciar Documentação Assistencial", "Gerente Tecnologia e Inovação", "A",
-         "Novos canais digitais (apps, portais de resultado) às vezes são implantados sem validação técnica prévia das áreas assistenciais."),
+         "Novos canais digitais de resultado/prontuário podem se beneficiar de uma etapa formal de validação técnica junto às áreas assistenciais antes da implantação."),
 
         ("Gerenciar Epidemiologia e Infecção Hospitalar", "Gerente Segurança Assistencial", "R",
-         "Vigilância epidemiológica depende de dados de múltiplas unidades, com qualidade heterogênea de notificação."),
+         "A vigilância epidemiológica depende de dados de múltiplas unidades, com qualidade de notificação ainda heterogênea entre elas."),
         ("Gerenciar Epidemiologia e Infecção Hospitalar", "Gerente Corporativo Enfermagem", "A",
-         "Adesão a protocolos de controle de infecção varia entre equipes, exigindo reforço constante de auditoria."),
+         "A adesão a protocolos de controle de infecção varia entre equipes, o que demanda reforço constante de auditoria."),
         ("Gerenciar Epidemiologia e Infecção Hospitalar", "Gerente de Qualidade", "A",
-         "Indicadores de infecção se sobrepõem parcialmente aos indicadores gerais de qualidade assistencial, sem dashboard único."),
+         "Os indicadores de infecção e os indicadores gerais de qualidade assistencial ainda não estão totalmente integrados em um único painel."),
 
         # ---- 3. Hotelaria, Logística e Infraestrutura ----------------------
         ("Gerenciar Higienização", "Gerente Corporativo Operações", "R",
-         "Fluxo de liberação de leitos entre Higienização e Enfermagem precisa de reforço quando há equipamentos assistenciais no quarto após a alta."),
+         "O fluxo de liberação de leitos entre Higienização e Enfermagem pode ser reforçado nos casos em que equipamentos assistenciais permanecem no quarto após a alta."),
         ("Gerenciar Higienização", "Gerente Hospitalar", "A",
-         "Padrão de qualidade de higienização varia entre hospitais, sem indicador único corporativo."),
+         "O padrão de qualidade de higienização varia entre hospitais, sem um indicador único corporativo."),
 
         ("Gerenciar Rouparia", "Gerente Corporativo Operações", "R",
-         "Limite de responsabilidade entre Rouparia e Hotelaria sobre o enxoval ainda gera dúvida operacional recorrente."),
+         "O limite de responsabilidade entre Rouparia e Hotelaria sobre o enxoval ainda gera dúvida operacional recorrente."),
         ("Gerenciar Rouparia", "Gerente de Suprimentos", "A",
-         "Reposição de itens de rouparia depende de integração de estoque com Suprimentos, hoje com rotas sujeitas a falha."),
+         "A reposição de itens de rouparia depende de integração de estoque com Suprimentos, com rotas por vezes sujeitas a falha."),
 
         ("Gerenciar Esterilização", "Gerente Corporativo Operações", "R",
-         "CME participa de etapas administrativas de compra de instrumentais que poderiam ser centralizadas em Suprimentos."),
+         "O CME participa hoje de etapas administrativas de compra de instrumentais que poderiam ser mais centralizadas em Suprimentos."),
         ("Gerenciar Esterilização", "Gerente Segurança Assistencial", "A",
-         "Rastreabilidade de instrumentais exige integração constante com os protocolos de controle de infecção."),
+         "A rastreabilidade de instrumentais exige integração constante com os protocolos de controle de infecção."),
         ("Gerenciar Esterilização", "Gerente de Suprimentos", "A",
-         "Dobra/confecção de pacotes cirúrgicos por vezes ocorre na lavanderia, quando poderia ser centralizada no CME."),
+         "A dobra e a confecção de pacotes cirúrgicos por vezes ocorrem na lavanderia, quando poderiam ser centralizadas no CME."),
 
         ("Gerenciar Manutenção Predial", "Gerente de Infraestrutura", "R",
-         "Equipes de manutenção às vezes assumem tarefas de logística interna (ex.: transporte de cilindros de gás) por falta de equipe noturna dedicada."),
+         "No período noturno, equipes de manutenção relataram assumir tarefas de logística interna (como transporte de cilindros de gás) pela ausência de equipe dedicada nesse turno."),
         ("Gerenciar Manutenção Predial", "Gerente de Modernização", "A",
-         "Projetos de reforma de menor porte se sobrepõem entre Manutenção e Modernização, sem critério único de porte/complexidade."),
+         "Projetos de reforma de menor porte ainda não têm um critério único de porte/complexidade que defina se ficam com Manutenção ou com Modernização."),
 
         ("Gerenciar Engenharia Clínica", "Gerente de Infraestrutura", "R",
-         "Movimentação e baixa patrimonial de equipamentos médicos às vezes ocorre sem formalização prévia junto ao Patrimônio."),
+         "A movimentação e a baixa patrimonial de equipamentos médicos por vezes ocorrem sem formalização prévia junto à área de Patrimônio."),
         ("Gerenciar Engenharia Clínica", "Gerente Tecnologia e Inovação", "A",
-         "Projetos de integração de equipamentos médicos digitais (ex.: PACS) não têm fronteira formal definida entre TI e Engenharia Clínica."),
+         "Projetos de integração de equipamentos médicos digitais ainda não têm uma fronteira formalmente definida entre TI e Engenharia Clínica."),
         ("Gerenciar Engenharia Clínica", "Gerente de Suprimentos", "A",
-         "Especificação técnica de compras de equipamentos exige alinhamento constante para evitar retrabalho entre as duas áreas."),
+         "A especificação técnica de compras de equipamentos pode se beneficiar de um checklist conjunto entre as duas áreas, reduzindo retrabalho."),
 
         ("Gerenciar Obras", "Gerente de Modernização", "R",
-         "Cronograma de obras de expansão concorre por recursos e prioridade com a manutenção predial corrente."),
+         "O cronograma de obras de expansão concorre por prioridade e recursos com a manutenção predial do dia a dia."),
         ("Gerenciar Obras", "Gerente PMO", "A",
-         "Abertura/fechamento de contas bancárias específicas de projeto e acompanhamento de compras dos projetos ainda geram dúvida sobre qual área conduz."),
+         "A abertura/fechamento de contas específicas de projeto e o acompanhamento das compras associadas ainda geram dúvida sobre qual área conduz cada etapa."),
         ("Gerenciar Obras", "Gerente de Infraestrutura", "A",
-         "Mapeamento de necessidades complementares de segurança e TI em obras novas depende de alinhamento manual entre as áreas."),
+         "O mapeamento de necessidades complementares de segurança e TI em obras novas depende, hoje, de alinhamento manual entre as áreas envolvidas."),
 
-        ("Gerenciar Segurança", "Gerente de Infraestrutura", "R",
-         "Estrutura de segurança patrimonial tem alçada e grau hierárquico ainda em revisão frente ao porte da operação."),
+        ("Gerenciar Segurança", "Gerente Corporativo Operações", "R",
+         "A coordenação de segurança patrimonial reporta hoje à Gerência de Operações. Já foi sugerido avaliar a realocação dessa função para a Direção Administrativa/Infraestrutura, por maior aderência com temas de patrimônio e proteção física."),
+        ("Gerenciar Segurança", "Gerente de Infraestrutura", "A",
+         "A estrutura de segurança patrimonial tem sua alçada e nível hierárquico ainda em avaliação frente ao porte atual da operação."),
         ("Gerenciar Segurança", "Gerente Jurídico", "A",
-         "Ocorrências de segurança com desdobramento jurídico (ex.: ordens judiciais, sinistros) exigem apoio jurídico recorrente."),
+         "Ocorrências de segurança com desdobramento jurídico (como ordens judiciais e sinistros) geram apoio recorrente entre as duas áreas."),
 
         ("Gerenciar Suprimentos", "Gerente de Suprimentos", "R",
-         "Contratação de PJ médico e de prestadores tramita hoje por Compras/Suprimentos, mas deveria ser conduzida pelo RH."),
+         "A formalização de contratos de prestadores PJ tramita hoje por Suprimentos/Compras, podendo ser um processo mais natural para a área de Gestão de Pessoas."),
         ("Gerenciar Suprimentos", "Gerente de Controladoria", "A",
-         "Provisão contábil de ordens de compra em aberto gera divergência recorrente entre Suprimentos e Controladoria."),
+         "A provisão contábil de ordens de compra em aberto ainda gera divergência recorrente de critério entre as duas áreas."),
 
         # ---- 4. Mercado e Ciclo de Receita ---------------------------------
         ("Gerenciar Comercial", "Gerente Comercial", "R",
-         "Negociação de reajustes com operadoras concorre, em parte, com a atuação de relacionamento médico sobre o mesmo cliente final."),
+         "A negociação de reajustes com operadoras e a atuação de relacionamento médico envolvem, em parte, o mesmo cliente final, o que reforça a importância de alinhamento entre as duas frentes."),
         ("Gerenciar Comercial", "Gerente Corporativo Relacionamento com corpo clinico e clientes", "A",
-         "Captação e fidelização de médicos hoje se sobrepõe à atuação comercial voltada a operadoras, sem fronteira clara entre os dois tipos de cliente."),
+         "A captação e a fidelização de médicos e a atuação comercial voltada a operadoras ainda não têm uma fronteira clara entre os dois tipos de cliente."),
 
         ("Gerenciar Produto", "Gerente Comercial", "R",
-         "Desenvolvimento de novos produtos/planos depende de parametrização de preços que só é fechada tardiamente pelo Faturamento."),
+         "O desenvolvimento de novos produtos/planos depende da parametrização de preços, que hoje é finalizada em etapa posterior pelo Faturamento."),
         ("Gerenciar Produto", "Gerente de Faturamento", "A",
-         "Regras comerciais nem sempre chegam prontas ao faturamento, gerando retrabalho de parametrização."),
+         "Regras comerciais nem sempre chegam previamente definidas ao faturamento, o que pode gerar retrabalho de parametrização."),
 
         ("Gerenciar Faturamento", "Gerente de Faturamento", "R",
-         "Ciclo da conta ainda tem gargalos entre autorização, revisão técnica e faturamento, sem responsável único por etapa."),
+         "O ciclo da conta ainda apresenta pontos de atenção entre autorização, revisão técnica e faturamento, sem um responsável único por etapa."),
         ("Gerenciar Faturamento", "Gerente Financeiro", "A",
-         "Auditoria de glosas e títulos a receber do pré-faturamento é acompanhada em paralelo pelo Financeiro, com pontos de divergência de critério."),
+         "A auditoria de glosas e os títulos a receber do pré-faturamento são acompanhados em paralelo pelo Financeiro, com critérios que podem ser melhor alinhados entre as áreas."),
         ("Gerenciar Faturamento", "Gerente Comercial", "A",
-         "Negociação de regras com operadoras deveria estar mais integrada ao faturamento desde o início do processo comercial."),
+         "A negociação de regras com operadoras pode se beneficiar de maior integração com o faturamento desde o início do processo comercial."),
 
         ("Gerenciar Finanças e Controladoria", "Gerente Financeiro", "R",
-         "Caixas hospitalares específicos (ensino/pesquisa, cemitério, HDJB) têm natureza financeira mas hoje respondem à gerência hospitalar local."),
+         "Caixas hospitalares específicos (como ensino/pesquisa, cemitério e HDJB) têm natureza financeira, mas hoje respondem à gerência hospitalar local."),
         ("Gerenciar Finanças e Controladoria", "Gerente de Controladoria", "A",
-         "Divergência de critério sobre PCLD (créditos de liquidação duvidosa) e provisões ainda demanda alinhamento recorrente."),
+         "Critérios de provisão (como PCLD — créditos de liquidação duvidosa) ainda demandam alinhamento recorrente entre Financeiro e Controladoria."),
 
         ("Gerenciar Marketing", "Gerente Comunic. e Marketing", "R",
-         "Ausência de diretriz institucional única para uso de IA generativa em campanhas gera iniciativas descentralizadas fora do padrão de marca."),
+         "Ainda não existe uma diretriz institucional única para uso de inteligência artificial generativa em campanhas, o que pode levar a iniciativas fora do padrão de marca."),
         ("Gerenciar Marketing", "Gerente Comercial", "A",
-         "Ações de marketing e comercial para captação de pacientes particulares exigem alinhamento constante de calendário e mensagem."),
+         "Ações de marketing e comercial voltadas à captação de pacientes particulares podem se beneficiar de um calendário e mensagem mais alinhados entre as áreas."),
 
         ("Gerenciar Filantropia", "Gerente de Relações Institucionais", "R",
-         "Atuação de Relações Institucionais depende de uma única pessoa, sem equipe própria, gerando assimetria frente à Captação de Recursos."),
+         "A atuação de Relações Institucionais depende hoje de uma única pessoa, sem equipe própria, o que pode gerar diferença de capacidade frente à área de Captação de Recursos."),
         ("Gerenciar Filantropia", "Gerente Projetos de Captação", "A",
-         "Sobreposição não formalizada entre quem origina (Relações Institucionais) e quem operacionaliza (Captação) os recursos captados."),
+         "A fronteira entre quem origina (Relações Institucionais) e quem operacionaliza (Captação) os recursos captados ainda não está formalizada."),
 
         ("Gerenciar Inovação e Planejamento", "Gerente Tecnologia e Inovação", "R",
-         "Sobreposição não formalizada entre Inovação e TI Sistemas na condução de projetos de implantação de soluções de mercado ('Buy')."),
+         "A condução de projetos de implantação de soluções de mercado ('comprar' versus 'construir') ainda não tem uma fronteira formalizada entre Inovação e TI Sistemas."),
         ("Gerenciar Inovação e Planejamento", "Gerente PMO", "A",
-         "Priorização de projetos de inovação concorre por orçamento e capacidade com o portfólio de obras/infraestrutura do PMO."),
+         "Os projetos de inovação concorrem por orçamento e capacidade com o portfólio de obras e infraestrutura do PMO."),
 
         # ---- 5. Capital Humano e Governança Clínica ------------------------
-        ("Gerenciar Pessoal", "Gerente de Gestão de Pessoas", "R",
-         "Demandas de ampliação de quadro são criadas com frequência sem planejamento anual prévio, gerando redesenho organizacional constante."),
-
+        # OBS: "Gerenciar Administração de Pessoal" concentra também o que
+        # antes seria "Gerenciar Pessoal" — o Levantamento de Áreas mostrou
+        # que múltiplas gerências reportam executar, na prática, parte desta
+        # atividade (escala, ponto, recrutamento), e não apenas a área de RH.
         ("Gerenciar Administração de Pessoal", "Gerente de Gestão de Pessoas", "R",
-         "Responsabilidade sobre frequência, banco de horas e férias ainda é compartilhada de forma pouco clara com os gestores das áreas."),
-        ("Gerenciar Administração de Pessoal", "Gerente de Controladoria", "A",
-         "Orçamento de pessoal e realizado de folha exigem reconciliação manual recorrente entre RH e Controladoria."),
+         "Processos de folha, férias, rescisões e recrutamento são conduzidos pela área. Demandas de ampliação de quadro, no entanto, surgem com frequência sem um planejamento anual prévio, levando a ajustes constantes de estrutura."),
+        ("Gerenciar Administração de Pessoal", "Gerente Hospitalar", "A",
+         "O controle e o fechamento de ponto das equipes ainda é feito de forma manual em algumas unidades — um processo com potencial de automação."),
+        ("Gerenciar Administração de Pessoal", "Gerente Corporativo Enfermagem", "A",
+         "Lideranças de enfermagem relataram dedicar parte relevante do seu tempo a escala, ponto e desligamento de equipe, tarefas que poderiam contar com mais apoio direto da área de Gestão de Pessoas."),
+        ("Gerenciar Administração de Pessoal", "Gerente Corporativo Operações", "A",
+         "Supervisões operacionais também relataram realizar controle manual de ponto e horas extras de suas equipes."),
+        ("Gerenciar Administração de Pessoal", "Gerente Médico", "A",
+         "A gestão de escalas e ponto médico é hoje conduzida, em parte, pelas coordenações médicas de cada segmento."),
+        ("Gerenciar Administração de Pessoal", "Gerente de Suprimentos", "A",
+         "A formalização de contratos de médicos PJ e de outros prestadores tramita hoje por Suprimentos/Compras, o que reforça a oportunidade de aproximar esse fluxo da Gestão de Pessoas."),
 
         ("Gerenciar SESMT", "Gerente de Gestão de Pessoas", "R",
-         "Agendamento de exames periódicos e triagem de intercorrências às vezes é feito por outras áreas quando deveria ser conduzido pelo SESMT."),
+         "O agendamento de exames periódicos e a triagem de intercorrências ocupacionais às vezes são conduzidos por outras áreas, podendo ser mais concentrados no SESMT."),
         ("Gerenciar SESMT", "Gerente Segurança Assistencial", "A",
-         "Segurança do trabalho e segurança do paciente compartilham temas de vigilância, mas ainda com pouca integração de indicadores."),
+         "Segurança do trabalho e segurança do paciente compartilham temas de vigilância, com oportunidade de maior integração de indicadores entre as duas frentes."),
 
         ("Gerenciar Relacionamento Médico", "Gerente Corporativo Relacionamento com corpo clinico e clientes", "R",
-         "Diretores médicos atuam hoje de forma pouco padronizada, sem modelo único de governança de relacionamento com o corpo clínico."),
+         "A atuação dos diretores médicos junto ao corpo clínico ainda ocorre de forma pouco padronizada entre as unidades, sem um modelo único de governança de relacionamento."),
         ("Gerenciar Relacionamento Médico", "Gerente Médico", "A",
-         "Credenciamento de corpo clínico passa pela aprovação do próprio chefe de especialidade em alguns casos, gerando risco de conflito de interesse."),
+         "Em alguns casos, o credenciamento de corpo clínico passa pela aprovação do próprio chefe da especialidade envolvida, o que pode ser revisto para reduzir risco de conflito de interesse."),
 
         ("Gerenciar Práticas Médicas", "Gerente Médico", "R",
-         "Múltiplas 'práticas assistenciais' (gerência médica, líder de práticas, pessoas vinculadas a diferentes diretores) atuam sem modelo único definido."),
+         "Existem hoje diferentes frentes de 'prática assistencial' (gerência médica, lideranças de prática e pessoas vinculadas a diferentes diretorias) atuando sem um modelo único definido, o que pode gerar sobreposição de papéis."),
         ("Gerenciar Práticas Médicas", "Gerente Segurança Assistencial", "A",
-         "Avaliação de novas tecnologias/práticas é feita em paralelo por diferentes áreas, com decisão final dependendo de comitê conjunto."),
+         "A avaliação de novas tecnologias e práticas envolve, em paralelo, diferentes áreas (regulatória, custo, uso clínico), com a decisão final dependendo de um comitê conjunto."),
 
         ("Gerenciar Resultados e Práticas Assistenciais", "Gerente Segurança Assistencial", "R",
-         "Indicadores de desfecho e eventos adversos ainda dependem de integração manual de dados de múltiplas unidades."),
+         "Os indicadores de desfecho e eventos adversos ainda dependem de integração manual de dados vindos de múltiplas unidades."),
         ("Gerenciar Resultados e Práticas Assistenciais", "Gerente Corporativo Enfermagem", "A",
-         "Coleta de indicadores assistenciais consome tempo da liderança de enfermagem, que também responde por parte da apuração de resultados."),
+         "Parte da coleta de indicadores assistenciais é realizada pela própria liderança de enfermagem, que também apoia a apuração de resultados."),
         ("Gerenciar Resultados e Práticas Assistenciais", "Gerente Médico", "A",
-         "Prática assistencial médica se sobrepõe, em parte, com a gerência médica e com líderes de prática ligados a diferentes diretorias."),
+         "A atuação em prática assistencial médica se sobrepõe, em parte, com a gerência médica e com lideranças de prática vinculadas a diferentes diretorias."),
 
         # ---- 6. Governança Corporativa e Suporte ---------------------------
         ("Gerenciar Governança Corporativa", "Gerente PMO", "R",
-         "PMO Corporativo é hoje posicionado junto à área administrativa, quando deveria caminhar mais próximo da governança estratégica institucional."),
+         "O PMO Corporativo está hoje posicionado junto à área administrativa; pode valer avaliar um posicionamento mais próximo da governança estratégica institucional."),
         ("Gerenciar Governança Corporativa", "Gerente Jurídico", "A",
-         "Apoio jurídico a decisões de governança corporativa é recorrente, mas sem fórum formal conjunto definido."),
+         "O apoio jurídico a decisões de governança corporativa é recorrente, ainda sem um fórum conjunto formalmente definido."),
 
         ("Gerenciar Jurídico", "Gerente Jurídico", "R",
-         "Reunião de documentos para defesas trabalhistas e gestão de imóveis por vezes é conduzida pelo Jurídico quando deveria voltar para RH/Patrimônio."),
+         "A reunião de documentos para defesas trabalhistas e alguns temas de gestão de imóveis são conduzidos hoje pelo Jurídico, podendo contar com mais apoio direto de RH/Patrimônio."),
 
         ("Gerenciar Qualidade", "Gerente de Qualidade", "R",
-         "Qualidade é acionada tardiamente em projetos que deveriam ser conduzidos, desde o início, pelos próprios responsáveis pela área."),
+         "A área de Qualidade é acionada, em alguns projetos, apenas em etapa avançada, quando poderia estar envolvida desde o início pelos próprios responsáveis da área."),
         ("Gerenciar Qualidade", "Gerente Segurança Assistencial", "A",
-         "Interfaces entre Qualidade e Segurança Assistencial ainda precisam de melhor integração de indicadores e fóruns."),
+         "As interfaces entre Qualidade e Segurança Assistencial têm oportunidade de maior integração de indicadores e fóruns conjuntos."),
 
         ("Gerenciar TI", "Gerente Tecnologia e Inovação", "R",
-         "Definição de perfis de acesso aos sistemas não está clara entre TI, Gestão de Pessoas e Qualidade."),
+         "A definição de perfis de acesso aos sistemas ainda não está totalmente clara entre TI, Gestão de Pessoas e Qualidade."),
         ("Gerenciar TI", "Gerente de Infraestrutura", "A",
-         "Monitoramento e manutenção de infraestrutura crítica (nobreaks, climatização) exige atuação conjunta e proativa entre TI e Engenharia."),
+         "O monitoramento de infraestrutura crítica (nobreaks, climatização) depende de atuação conjunta e proativa entre TI e Engenharia."),
 
         ("Gerenciar Ensino e Pesquisa", "Gerente Ensino e Pesquisa", "R",
-         "Médicos influentes por vezes negociam pesquisa e isenções de ensino diretamente com a Direção, sem passar pela gerência."),
+         "Em alguns casos, tratativas de pesquisa e isenções de ensino são conduzidas diretamente com a Direção, sem passar pela gerência responsável."),
         ("Gerenciar Ensino e Pesquisa", "Gerente Médico", "A",
-         "Sobreposição entre Ensino e Educação Corporativa na formação de médicos celetistas do corpo clínico ainda não foi resolvida."),
+         "A formação de médicos celetistas do corpo clínico ainda é tratada tanto por Ensino quanto por Educação Corporativa, sem uma definição única de responsabilidade."),
     ]
 
 
@@ -490,23 +479,20 @@ def montar_base() -> tuple[pd.DataFrame, dict]:
     abreviacoes = carregar_abreviacoes()
 
     funcao_para_pilar = {}
-    for nome_pilar, info in pilares.items():
-        for funcao in info["funcoes"]:
-            funcao_para_pilar[funcao] = (nome_pilar, info["macroprocesso"])
+    for nome_pilar, funcoes in pilares.items():
+        for funcao in funcoes:
+            funcao_para_pilar[funcao] = nome_pilar
 
     linhas = []
     for funcao, gerencia, papel, ponto_atencao in relacoes:
-        pilar, macro = funcao_para_pilar[funcao]
         linhas.append(
             {
-                "Pilar": pilar,
-                "Macroprocesso": macro,
+                "Pilar": funcao_para_pilar[funcao],
                 "Função": funcao,
                 "Gerência": gerencia,
                 "Gerência (abreviada)": abreviacoes.get(gerencia, gerencia),
                 "Papel": papel,
-                "Papel (rótulo)": CORES_PAPEL[papel]["rotulo"],
-                "Ponto de Atenção / Sobreposição": ponto_atencao,
+                "Ponto de Atenção": ponto_atencao,
             }
         )
 
@@ -543,16 +529,14 @@ def filtrar_por_busca(df: pd.DataFrame, termo: str) -> pd.DataFrame:
 def criar_matriz_bolhas(df_pilar: pd.DataFrame, ordem_funcoes: list[str]) -> go.Figure:
     """Gera o gráfico de bolhas matricial para um Pilar específico.
     Eixo X = Gerências (rótulo abreviado, fonte pequena, quebra de linha).
-    Eixo Y = Funções ("Gerenciar ..."), na ordem original do pilar.
+    Eixo Y = Funções ("Gerenciar ..."), na ordem original do pilar, com
+    espaçamento reduzido para facilitar a visualização.
     Cor/tamanho da bolha = Papel (Responsável x Apoio).
-    Hover = Função, Gerência completa, Papel e Ponto de Atenção/Sobreposição.
+    Hover = Função, Gerência completa e Ponto de Atenção (sem o rótulo de
+    Papel, para manter o texto mais enxuto).
     """
-    # Mantém apenas as funções que ainda possuem ao menos 1 relação visível.
     funcoes_visiveis = [f for f in ordem_funcoes if f in set(df_pilar["Função"])]
 
-    # Colunas (gerências) relevantes = união das gerências relacionadas às
-    # funções deste pilar, já filtradas — ordenadas alfabeticamente pelo
-    # nome completo para manter consistência entre recarregamentos.
     gerencias_visiveis = (
         df_pilar[["Gerência", "Gerência (abreviada)"]]
         .drop_duplicates()
@@ -567,7 +551,7 @@ def criar_matriz_bolhas(df_pilar: pd.DataFrame, ordem_funcoes: list[str]) -> go.
         if subset.empty:
             continue
 
-        customdata = subset[["Função", "Gerência", "Papel (rótulo)", "Ponto de Atenção / Sobreposição"]].values
+        customdata = subset[["Função", "Gerência", "Ponto de Atenção"]].values
 
         fig.add_trace(
             go.Scatter(
@@ -584,15 +568,16 @@ def criar_matriz_bolhas(df_pilar: pd.DataFrame, ordem_funcoes: list[str]) -> go.
                 customdata=customdata,
                 hovertemplate=(
                     "<b>%{customdata[0]}</b><br>"
-                    "Gerência: <b>%{customdata[1]}</b><br>"
-                    "Papel: %{customdata[2]}<br><br>"
-                    "<b>Ponto de atenção / sobreposição:</b><br>%{customdata[3]}"
+                    "Gerência: <b>%{customdata[1]}</b><br><br>"
+                    "<b>Ponto de atenção:</b><br>%{customdata[2]}"
                     "<extra></extra>"
                 ),
             )
         )
 
-    altura = max(420, 95 * len(funcoes_visiveis) + 160)
+    # Espaçamento vertical reduzido (menos altura por função) para diminuir
+    # a necessidade de rolagem, mantendo boa legibilidade das bolhas.
+    altura = max(340, 58 * len(funcoes_visiveis) + 130)
 
     fig.update_layout(
         xaxis=dict(
@@ -611,7 +596,7 @@ def criar_matriz_bolhas(df_pilar: pd.DataFrame, ordem_funcoes: list[str]) -> go.
             type="category",
             categoryorder="array",
             categoryarray=funcoes_visiveis[::-1],  # primeira função no topo
-            tickfont=dict(size=12),
+            tickfont=dict(size=11),
             showgrid=True,
             gridcolor="#F1F2F4",
             automargin=True,
@@ -634,7 +619,7 @@ def render_hero() -> None:
         <div class="hero-container">
             <div class="hero-title">🏥 Matriz Área x Função — Santa Casa de Porto Alegre</div>
             <div class="hero-subtitle">
-                Cruzamento entre as 38 Funções organizacionais (6 Pilares de Sinergia) e as
+                Cruzamento entre as Funções organizacionais (6 Pilares de Sinergia) e as
                 22 Gerências/Áreas corporativas — visualização em matriz de bolhas interativa.
             </div>
         </div>
@@ -650,22 +635,14 @@ def render_legenda() -> None:
         f"</span>"
         for c in CORES_PAPEL.values()
     )
-    itens_macro = "".join(
-        f'<span class="legenda-item">'
-        f'<span class="legenda-pill" style="background:{c["bg"]}; color:{c["text"]};">{nome}</span>'
-        f"</span>"
-        for nome, c in CORES_MACRO.items()
-    )
     st.markdown(
         f"""
         <div class="legenda-card">
             <div class="legenda-titulo">🔵 Papel de responsabilidade (cor e tamanho da bolha)</div>
             <div>{itens_papel}</div>
-            <div class="legenda-titulo" style="margin-top:0.7rem;">🎨 Macroprocesso (classificação do Pilar)</div>
-            <div>{itens_macro}</div>
             <div style="font-size:0.78rem; color:#64748B; margin-top:0.5rem;">
-                💡 Passe o mouse sobre qualquer bolha para ver o principal ponto de atenção/sobreposição
-                daquele cruzamento específico entre Função e Gerência.
+                💡 Passe o mouse sobre qualquer bolha para ver o principal ponto de atenção
+                daquele cruzamento entre Função e Gerência.
             </div>
         </div>
         """,
@@ -677,14 +654,13 @@ def render_estatisticas(df_visivel: pd.DataFrame, total_gerencias: int) -> None:
     total_funcoes = df_visivel["Função"].nunique()
     total_gerencias_ativas = df_visivel["Gerência"].nunique()
     total_relacoes = len(df_visivel)
-    total_responsavel = int((df_visivel["Papel"] == "R").sum())
 
     col1, col2, col3, col4 = st.columns(4)
     cartoes = [
         (col1, total_funcoes, "Funções visíveis"),
         (col2, f"{total_gerencias_ativas}/{total_gerencias}", "Gerências envolvidas"),
         (col3, total_relacoes, "Relações mapeadas"),
-        (col4, total_responsavel, "Papéis 'Responsável'"),
+        (col4, TOTAL_FORMULARIOS_RESPONDIDOS, "Formulários respondidos"),
     ]
     for coluna, valor, rotulo in cartoes:
         with coluna:
@@ -699,34 +675,26 @@ def render_estatisticas(df_visivel: pd.DataFrame, total_gerencias: int) -> None:
             )
 
 
-def render_sidebar(gerencias_todas: list[str]) -> tuple[str, str, list[str]]:
+def render_sidebar(gerencias_todas: list[str]) -> tuple[str, list[str]]:
     """Renderiza os filtros da barra lateral e retorna
-    (macro_filtro, termo_busca, gerencias_selecionadas)."""
+    (termo_busca, gerencias_selecionadas)."""
 
     st.sidebar.markdown("## 🎛️ Painel de Filtros")
     st.sidebar.caption("Ajuste os filtros para focar em recortes específicos da matriz.")
     st.sidebar.markdown("---")
 
-    st.session_state.setdefault("macro_filtro", "Todos")
     st.session_state.setdefault("busca_funcao", "")
     st.session_state.setdefault("gerencias_selecionadas", gerencias_todas)
 
-    st.sidebar.radio(
-        "1️⃣ Macroprocesso",
-        options=["Todos", "Finalístico", "Meio", "Apoio"],
-        key="macro_filtro",
-        help="Filtra os pilares/abas de acordo com a classificação de macroprocesso.",
-    )
-
     st.sidebar.text_input(
-        "2️⃣ Buscar Função ou Gerência",
+        "1️⃣ Buscar Função ou Gerência",
         key="busca_funcao",
         placeholder="Ex.: leitos, farmácia, jurídico...",
         help="Busca por palavras-chave no nome da Função OU da Gerência.",
     )
 
     st.sidebar.multiselect(
-        "3️⃣ Isolar Gerências específicas",
+        "2️⃣ Isolar Gerências específicas",
         options=gerencias_todas,
         key="gerencias_selecionadas",
         help="Remova gerências da lista para limpar o gráfico e focar em áreas específicas.",
@@ -734,7 +702,6 @@ def render_sidebar(gerencias_todas: list[str]) -> tuple[str, str, list[str]]:
 
     st.sidebar.markdown("---")
     if st.sidebar.button("🔄 Limpar todos os filtros", use_container_width=True):
-        st.session_state["macro_filtro"] = "Todos"
         st.session_state["busca_funcao"] = ""
         st.session_state["gerencias_selecionadas"] = gerencias_todas
         st.rerun()
@@ -746,7 +713,6 @@ def render_sidebar(gerencias_todas: list[str]) -> tuple[str, str, list[str]]:
     )
 
     return (
-        st.session_state["macro_filtro"],
         st.session_state["busca_funcao"],
         st.session_state["gerencias_selecionadas"],
     )
@@ -756,7 +722,7 @@ def render_exportacao(df_exportar: pd.DataFrame) -> None:
     """Botões de download (CSV e Excel) para o recorte atual (todos os
     pilares/abas visíveis após os filtros aplicados)."""
     st.markdown("#### 📥 Exportar matriz filtrada (todas as abas visíveis)")
-    colunas_exportar = ["Pilar", "Macroprocesso", "Função", "Gerência", "Papel (rótulo)", "Ponto de Atenção / Sobreposição"]
+    colunas_exportar = ["Pilar", "Função", "Gerência", "Papel", "Ponto de Atenção"]
     df_export = df_exportar[colunas_exportar]
 
     col_csv, col_xlsx = st.columns(2)
@@ -795,19 +761,13 @@ def main() -> None:
     render_hero()
     render_legenda()
 
-    macro_filtro, termo_busca, gerencias_selecionadas = render_sidebar(gerencias_todas)
+    termo_busca, gerencias_selecionadas = render_sidebar(gerencias_todas)
 
     # -------- Aplica os filtros globais (busca + gerências) --------------
     df_filtrado = filtrar_por_busca(df, termo_busca)
     df_filtrado = df_filtrado[df_filtrado["Gerência"].isin(gerencias_selecionadas)]
 
-    df_filtrado_macro = (
-        df_filtrado[df_filtrado["Macroprocesso"] == macro_filtro]
-        if macro_filtro != "Todos"
-        else df_filtrado
-    )
-
-    render_estatisticas(df_filtrado_macro, total_gerencias=len(gerencias_todas))
+    render_estatisticas(df_filtrado, total_gerencias=len(gerencias_todas))
     st.markdown("")
 
     # -------- Renderiza 1 aba por Pilar de Sinergia -----------------------
@@ -816,24 +776,11 @@ def main() -> None:
 
     for tab, nome_pilar in zip(tabs, nomes_pilares):
         with tab:
-            info_pilar = pilares[nome_pilar]
-            macro_pilar = info_pilar["macroprocesso"]
-            cor_macro = CORES_MACRO[macro_pilar]
-
+            funcoes_pilar = pilares[nome_pilar]
             st.markdown(
-                f'<span class="selo-macro" style="background:{cor_macro["bg"]}; color:{cor_macro["text"]};">'
-                f"{macro_pilar}</span> &nbsp; "
-                f'<span style="color:#64748B; font-size:0.85rem;">{len(info_pilar["funcoes"])} funções mapeadas neste pilar</span>',
+                f'<div class="pilar-caption">{len(funcoes_pilar)} funções mapeadas neste pilar</div>',
                 unsafe_allow_html=True,
             )
-
-            if macro_filtro != "Todos" and macro_filtro != macro_pilar:
-                st.info(
-                    f"ℹ️ Este pilar pertence ao macroprocesso **{macro_pilar}**. "
-                    f"Ajuste o filtro de Macroprocesso na barra lateral para "
-                    f"**Todos** ou **{macro_pilar}** para visualizar esta aba."
-                )
-                continue
 
             df_pilar = df_filtrado[df_filtrado["Pilar"] == nome_pilar]
 
@@ -845,16 +792,16 @@ def main() -> None:
                 )
                 continue
 
-            fig = criar_matriz_bolhas(df_pilar, info_pilar["funcoes"])
+            fig = criar_matriz_bolhas(df_pilar, funcoes_pilar)
             st.plotly_chart(fig, use_container_width=True, key=f"grafico_{nome_pilar}")
 
     # -------- Exportação (considera todos os pilares após os filtros) -----
     st.markdown("---")
-    render_exportacao(df_filtrado_macro)
+    render_exportacao(df_filtrado)
 
     st.markdown("---")
     st.caption(
-        "💡 Dica: passe o mouse sobre as bolhas para ver o principal ponto de atenção/sobreposição "
+        "💡 Dica: passe o mouse sobre as bolhas para ver o principal ponto de atenção "
         "de cada cruzamento. Use a legenda do gráfico (clique nos itens) para isolar só 'Responsável' ou só 'Apoio'."
     )
 
